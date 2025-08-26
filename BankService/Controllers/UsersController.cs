@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using BankService.Models;
+using BankService.Dtos;
 
 namespace BankService.Controllers
 {
@@ -16,29 +17,36 @@ namespace BankService.Controllers
         private static int _nextId = 2;
 
         [HttpGet]
-        public ActionResult<IEnumerable<User>> GetAll() => Ok(_users);
+        public ActionResult<IEnumerable<UserDto>> GetAll()
+        {
+            var users = _users.Select(u => new UserDto(u.Id, u.Name, u.Email));
+            return Ok(users);
+        }
 
         [HttpGet("{id:int}")]
         public ActionResult<User> GetById(int id)
         {
             var user = _users.FirstOrDefault(u => u.Id == id);
-            return user is null ? NotFound() : Ok(user);
+            if (user is null) return NotFound();
+            return Ok(new UserDto(user.Id, user.Name, user.Email));
         }
 
-        public record CreateUserDto(string Name, string Email);
+        //public record CreateUserDto(string Name, string Email);
 
         [HttpPost]
-        public ActionResult<User> Create(CreateUserDto dto)
+        public ActionResult<UserDto> Create(CreateUserDto dto)
         {
             if (_users.Any(u => u.Email.Equals(dto.Email, StringComparison.OrdinalIgnoreCase)))
                 return Conflict(new { error = "Email already exists" });
 
             var user = new User { Id = _nextId++, Name = dto.Name, Email = dto.Email };
             _users.Add(user);
-            return CreatedAtAction(nameof(GetById), new { id = user.Id }, user);
+
+            var result = new UserDto(user.Id, user.Name, user.Email);
+            return CreatedAtAction(nameof(GetById), new { id = user.Id }, result);
         }
 
-        public record UpdateUserDto(string Name);
+        //public record UpdateUserDto(string Name);
 
         [HttpPut("{id:int}")]
         public IActionResult Update(int id, UpdateUserDto dto)
