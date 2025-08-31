@@ -1,6 +1,8 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using BankService.Models;
 using BankService.Dtos;
+using Microsoft.EntityFrameworkCore;
+using BankService.Data;
 
 namespace BankService.Controllers
 {
@@ -8,53 +10,54 @@ namespace BankService.Controllers
     [Route("api/[controller]")]
     public class AccountsController : ControllerBase
     {
-        private static readonly List<Account> _accounts = new()
-        {
-            new Account { Id = 1, UserId = 1, AccountNumber = "ACC1001", Balance = 5000m },
-            new Account { Id = 2, UserId = 1, AccountNumber = "ACC1002", Balance = 2000m }
-        };
+        private readonly BankDbContext _context;
 
-        private static int _nextId = 3;
+        public AccountsController(BankDbContext context)
+        {
+            _context = context;
+        }
 
         [HttpGet]
-        public ActionResult<IEnumerable<AccountDto>> GetAll()
+        public async Task<ActionResult<IEnumerable<AccountDto>>> GetAll()
         {
-            var accounts = _accounts.Select(a =>
-                new AccountDto(a.Id, a.UserId, a.AccountNumber, a.Balance));
+            var accounts = await _context.Accounts
+                .Select(a => new AccountDto(a.Id, a.UserId, a.AccountNumber, a.Balance))
+                .ToListAsync();
+
             return Ok(accounts);
         }
 
         [HttpGet("{id:int}")]
-        public ActionResult<AccountDto> GetById(int id)
+        public async Task<ActionResult<AccountDto>> GetById(int id)
         {
-            var account = _accounts.FirstOrDefault(a => a.Id == id);
+            var account = await _context.Accounts.FindAsync(id);
             if (account is null) return NotFound();
 
             return Ok(new AccountDto(account.Id, account.UserId, account.AccountNumber, account.Balance));
         }
 
         [HttpPost]
-        public ActionResult<AccountDto> Create(CreateAccountDto dto)
+        public async Task<ActionResult<AccountDto>> Create(CreateAccountDto dto)
         {
             var account = new Account
             {
-                Id = _nextId++,
                 UserId = dto.UserId,
-                AccountNumber = $"ACC{1000 + _nextId}",
+                AccountNumber = $"ACC{Guid.NewGuid().ToString("N")[..6]}",
                 Balance = dto.InitialBalance
             };
 
-            _accounts.Add(account);
+            _context.Accounts.Add(account);
+            await _context.SaveChangesAsync();
 
             var result = new AccountDto(account.Id, account.UserId, account.AccountNumber, account.Balance);
             return CreatedAtAction(nameof(GetById), new { id = account.Id }, result);
         }
 
         [HttpPost("transfer")]
-        public IActionResult Transfer(TransferDto dto)
+        public async Task<IActionResult> Transfer(TransferDto dto)
         {
-            var from = _accounts.FirstOrDefault(a => a.Id == dto.FromAccountId);
-            var to = _accounts.FirstOrDefault(a => a.Id == dto.ToAccountId);
+            var from = await _context.Accounts.FindAsync(dto.FromAccountId);
+            var to = await _context.Accounts.FindAsync(dto.ToAccountId);
 
             if (from is null || to is null)
                 return NotFound(new { error = "One or both accounts not found" });
@@ -62,9 +65,10 @@ namespace BankService.Controllers
             if (from.Balance < dto.Amount)
                 return BadRequest(new { error = "Insufficient funds" });
 
-            // Выполним перевод
             from.Balance -= dto.Amount;
             to.Balance += dto.Amount;
+
+            await _context.SaveChangesAsync();
 
             return Ok(new
             {

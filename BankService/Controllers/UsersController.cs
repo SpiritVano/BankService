@@ -1,6 +1,8 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using BankService.Models;
 using BankService.Dtos;
+using Microsoft.EntityFrameworkCore;
+using BankService.Data;
 
 namespace BankService.Controllers
 {
@@ -8,39 +10,43 @@ namespace BankService.Controllers
     [Route("api/[controller]")]
     public class UsersController : ControllerBase
     {
-        // Временное in-memory хранилище для обучения
-        private static readonly List<User> _users = new()
-    {
-        new User { Id = 1, Name = "Ivan", Email = "ivan@example.com" }
-    };
+        private readonly BankDbContext _context;
 
-        private static int _nextId = 2;
+        public UsersController(BankDbContext context)
+        {
+            _context = context;
+        }
 
         [HttpGet]
-        public ActionResult<IEnumerable<UserDto>> GetAll()
+        public async Task<ActionResult<IEnumerable<UserDto>>> GetAll()
         {
-            var users = _users.Select(u => new UserDto(u.Id, u.Name, u.Email));
+            var users = await _context.Users
+                .Select(u => new UserDto(u.Id, u.Name, u.Email))
+                .ToListAsync();
+
             return Ok(users);
         }
 
         [HttpGet("{id:int}")]
-        public ActionResult<User> GetById(int id)
+        public async Task<ActionResult<UserDto>> GetById(int id)
         {
-            var user = _users.FirstOrDefault(u => u.Id == id);
+            var user = await _context.Users.FindAsync(id);
             if (user is null) return NotFound();
+
             return Ok(new UserDto(user.Id, user.Name, user.Email));
         }
 
         //public record CreateUserDto(string Name, string Email);
 
         [HttpPost]
-        public ActionResult<UserDto> Create(CreateUserDto dto)
+        public async Task<ActionResult<UserDto>> Create(CreateUserDto dto)
         {
-            if (_users.Any(u => u.Email.Equals(dto.Email, StringComparison.OrdinalIgnoreCase)))
+            if (await _context.Users.AnyAsync(u => u.Email == dto.Email))
                 return Conflict(new { error = "Email already exists" });
 
-            var user = new User { Id = _nextId++, Name = dto.Name, Email = dto.Email };
-            _users.Add(user);
+            var user = new User { Name = dto.Name, Email = dto.Email };
+            _context.Users.Add(user);
+            await _context.SaveChangesAsync();
 
             var result = new UserDto(user.Id, user.Name, user.Email);
             return CreatedAtAction(nameof(GetById), new { id = user.Id }, result);
@@ -49,20 +55,26 @@ namespace BankService.Controllers
         //public record UpdateUserDto(string Name);
 
         [HttpPut("{id:int}")]
-        public IActionResult Update(int id, UpdateUserDto dto)
+        public async Task<IActionResult> Update(int id, UpdateUserDto dto)
         {
-            var user = _users.FirstOrDefault(u => u.Id == id);
+            var user = await _context.Users.FindAsync(id);
             if (user is null) return NotFound();
+
             user.Name = dto.Name;
+            await _context.SaveChangesAsync();
+
             return NoContent();
         }
 
         [HttpDelete("{id:int}")]
-        public IActionResult Delete(int id)
+        public async Task<IActionResult> Delete(int id)
         {
-            var user = _users.FirstOrDefault(u => u.Id == id);
+            var user = await _context.Users.FindAsync(id);
             if (user is null) return NotFound();
-            _users.Remove(user);
+
+            _context.Users.Remove(user);
+            await _context.SaveChangesAsync();
+
             return NoContent();
         }
     }
