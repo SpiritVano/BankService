@@ -20,12 +20,19 @@
 📂 Структура проекта
 
 BankService/
+
  ├── Controllers/       # API контроллеры (Users, Accounts)
+ 
  ├── Data/              # DbContext (BankDbContext)
+ 
  ├── Dtos/              # Data Transfer Objects
+ 
  ├── Models/            # Сущности (User, Account)
+ 
  ├── Migrations/        # EF Core миграции
+ 
  ├── appsettings.json   # конфигурация
+ 
  └── Program.cs         # точка входа
 
 
