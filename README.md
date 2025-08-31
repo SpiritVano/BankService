@@ -37,22 +37,33 @@ BankService/
 
 
 📊 Настройка базы данных PostgreSQL
+
 Подключиться к PostgreSQL и выполнить:
 
 CREATE DATABASE "BankServiceDB";
+
 CREATE USER bankpeople WITH PASSWORD 'bankpass';
+
 GRANT ALL PRIVILEGES ON DATABASE "BankServiceDB" TO bankpeople;
 
 Применить миграции
+
   dotnet ef database update
+  
 Запустить проект
+
   dotnet run
+  
 API будет доступно по адресу:
+
   https://localhost:7096/swagger/index.html
 
 📌 Примеры API-запросов
+
 Создать пользователя
+
 POST /api/users
+
 Content-Type: application/json
 {
   "name": "Ivan",
@@ -60,10 +71,13 @@ Content-Type: application/json
 }
 
 Получить всех пользователей
+
 GET /api/users
 
 Создать счёт
+
 POST /api/accounts
+
 Content-Type: application/json
 {
   "userId": 1,
@@ -71,6 +85,7 @@ Content-Type: application/json
 }
 
 Перевод между счетами
+
 POST /api/accounts/transfer
 Content-Type: application/json
 {
